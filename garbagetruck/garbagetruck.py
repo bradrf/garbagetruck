@@ -4,7 +4,7 @@ import logging
 
 from hashlib import md5
 from configparser import SafeConfigParser
-from datetime import timedelta
+from datetime import timedelta, datetime
 
 from crontab import CronTab
 from send2trash import send2trash
@@ -64,6 +64,18 @@ class GarbageTruck:
             return
         name = self._config.get(section_name, 'name')
         self._logger.debug('Running: %s (%s)', name, section_name)
+        files_older_than = self._config.get(section_name, 'files_older_than')
+        period = GarbageTruck._period_from(files_older_than)
+        lab = period[1] + 's'
+        kwargs = {lab: period[0]}
+        delta = timedelta(**kwargs)
+        count = 0
+        while True:
+            count += 1
+            optname = 'dir' + str(count)
+            if not self._config.has_option(section_name, optname):
+                break
+            self._run_job(delta, self._config.get(section_name, optname))
 
     ######################################################################
     # private
@@ -96,3 +108,21 @@ class GarbageTruck:
             period[0] *= 12
             period[1] = 'month'
         return period
+
+    def _run_job(self, delta, dirname):
+        if not os.path.exists(dirname):
+            self._logger.warn('Ignoring %s: Does not exist', dirname)
+            return
+        oldest_mtime = datetime.now() - delta
+        self._logger.debug('Checking %s for files older than %s', dirname, oldest_mtime)
+        count = 0
+        for dirpath, _, filenames in os.walk(dirname):
+            for ent in filenames:
+                curpath = os.path.join(dirpath, ent)
+                file_modified = datetime.fromtimestamp(os.path.getmtime(curpath))
+                if file_modified < oldest_mtime:
+                    self._logger.debug('Trashing: %s', curpath)
+                    send2trash(curpath)
+                    count += 1
+        if count > 0:
+            self._logger.info('Cleaned up %d files', count)

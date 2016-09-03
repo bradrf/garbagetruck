@@ -37,6 +37,7 @@ def remove(job_name):
 @main.command()
 @click.argument('job_id')
 def run(job_id):
+    # TODO: default to output to log file here when stdout is not a tty (i.e. run by cron)
     truck = GarbageTruck()
     truck.run_job(job_id)
 
