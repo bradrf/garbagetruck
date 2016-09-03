@@ -10,8 +10,10 @@ with open('HISTORY.rst') as history_file:
     history = history_file.read()
 
 requirements = [
+    'future>=0.15.2',
     'Click>=6.0',
-    # TODO: put package requirements here
+    'python-crontab>=2.1.1',
+    'send2trash>=1.3.0',
 ]
 
 test_requirements = [
@@ -21,7 +23,7 @@ test_requirements = [
 setup(
     name='garbagetruck',
     version='0.1.0',
-    description="A small tool to periodically run old files into the local file system trash.",
+    description="A small tool to periodically move old files into the local file system trash.",
     long_description=readme + '\n\n' + history,
     author="Brad Robel-Forrest",
     author_email='brad@bitpony.com',
