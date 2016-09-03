@@ -18,8 +18,9 @@ class GarbageTruck:
         if os.path.exists(self._config_fn):
             self._config.read(self._config_fn)
 
-    def set_job(self, name, dirs, files_older_than='90 days', check_every='week'):
+    def set_job(self, run_command_format, name, dirs, files_older_than='90 days', check_every='week'):
         '''Set a job by adding or replacing based on the name.
+        :param run_command_format: Command called for running job (will interpolate %s with a job ID).
         :param name: Unique (to calling user) name for this job.
         :param dirs: List of directories to iterate looking for old files.
         :param files_older_than: Period to use to determine what "old" is for each file.
@@ -28,7 +29,7 @@ class GarbageTruck:
         section_name = GarbageTruck._section_name_for(name)
         self._logger.debug('Setting job: %s (%s)', name, section_name)
         self.remove_job(name)
-        job = self._cron.new(command='garbagetruck ' + section_name,
+        job = self._cron.new(command=run_command_format % section_name,
                              comment=GarbageTruck._comment_for(name))
         job_period = GarbageTruck._cron_safe_period_from(check_every)
         period_method = getattr(job, job_period[1])
@@ -55,6 +56,14 @@ class GarbageTruck:
         self._cron.write()
         with open(self._config_fn, 'wb') as configfile:
             self._config.write(configfile)
+
+    def run_job(self, id):
+        section_name = id
+        if not self._config.has_section(section_name):
+            self._logger.warn('Unable to run job %s: Does not exist', section_name)
+            return
+        name = self._config.get(section_name, 'name')
+        self._logger.debug('Running: %s (%s)', name, section_name)
 
     ######################################################################
     # private
