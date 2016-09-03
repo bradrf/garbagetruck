@@ -52,6 +52,18 @@ class GarbageTruck:
             optname = 'dir' + str(count)
             self._config.set(section_name, optname, dirname)
 
+    def list_jobs(self):
+        for section_name in self._config.sections():
+            items = {'dirs': []}
+            for name, value in self._config.items(section_name):
+                if name.startswith('dir'):
+                    items['dirs'].append(value)
+                else:
+                    items[name] = '"' + value + '"'
+            items['dirs'] = '[' + ','.join('"%s"' % i for i in items['dirs']) + ']'
+            self._logger.info('Job %s: %s', section_name,
+                              ' '.join(['%s=%s' % (k,v) for k,v in items.iteritems()]))
+
     def remove_job(self, name):
         '''Remove a job.
 
@@ -94,13 +106,8 @@ class GarbageTruck:
         lab = period[1] + 's'
         kwargs = {lab: period[0]}
         delta = timedelta(**kwargs)
-        count = 0
-        while True:
-            count += 1
-            optname = 'dir' + str(count)
-            if not self._config.has_option(section_name, optname):
-                break
-            self._run_job(delta, self._config.get(section_name, optname))
+        for dirname in self._get_dirs(section_name):
+            self._run_job(delta, dirname)
 
     ######################################################################
     # private
@@ -133,6 +140,16 @@ class GarbageTruck:
             period[0] *= 12
             period[1] = 'month'
         return period
+
+    def _get_dirs(self, section_name):
+        dirs = []
+        count = 0
+        while True:
+            count += 1
+            optname = 'dir' + str(count)
+            if not self._config.has_option(section_name, optname):
+                return dirs
+            dirs.append(self._config.get(section_name, optname))
 
     def _run_job(self, delta, dirname):
         if not os.path.exists(dirname):
