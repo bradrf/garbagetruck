@@ -10,6 +10,10 @@ from crontab import CronTab
 from send2trash import send2trash
 
 class GarbageTruck:
+    class InvalidPeriod(Exception):
+        '''Indicates when an invalid period is provided'''
+        pass
+
     def __init__(self):
         self._logger = logging.getLogger('garbagetruck')
         self._cron = CronTab(user=True)
@@ -46,6 +50,7 @@ class GarbageTruck:
         self._config.add_section(section_name)
         self._config.set(section_name, 'name', name)
         self._config.set(section_name, 'files_older_than', files_older_than)
+        self._config.set(section_name, 'check_every', check_every)
         count = 0
         for dirname in dirs:
             count += 1
@@ -54,15 +59,21 @@ class GarbageTruck:
 
     def list_jobs(self):
         for section_name in self._config.sections():
+            name = self._config.get(section_name, 'name')
             items = {'dirs': []}
-            for name, value in self._config.items(section_name):
-                if name.startswith('dir'):
+            for key, value in self._config.items(section_name):
+                if key == 'name':
+                    continue
+                if key.startswith('dir'):
                     items['dirs'].append(value)
                 else:
-                    items[name] = '"' + value + '"'
+                    items[key] = '"' + value + '"'
             items['dirs'] = '[' + ','.join('"%s"' % i for i in items['dirs']) + ']'
-            self._logger.info('Job %s: %s', section_name,
+            self._logger.info('Job %s: name="%s" %s', section_name, name,
                               ' '.join(['%s=%s' % (k,v) for k,v in items.iteritems()]))
+            if self._logger.getEffectiveLevel() <= logging.DEBUG:
+                job = next(self._cron.find_comment(GarbageTruck._comment_for(name)))
+                self._logger.debug(str(job))
 
     def remove_job(self, name):
         '''Remove a job.
@@ -125,7 +136,7 @@ class GarbageTruck:
     def _period_from(str):
         match = GarbageTruck._PERIOD_RE.match(str)
         if not match:
-            raise "Unable to parse period from " + str
+            raise GarbageTruck.InvalidPeriod("Unable to parse period from " + str)
         period = list(match.groups())
         period[0] = 1 if period[0] == '' else int(period[0])
         return period
@@ -137,8 +148,7 @@ class GarbageTruck:
             period[0] *= 7
             period[1] = 'day'
         elif period[1] == 'year':
-            period[0] *= 12
-            period[1] = 'month'
+            raise GarbageTruck.InvalidPeriod('Check schedule must be less than a year')
         return period
 
     def _get_dirs(self, section_name):
