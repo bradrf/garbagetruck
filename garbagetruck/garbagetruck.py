@@ -39,12 +39,20 @@ class GarbageTruck:
         '''
         section_name = GarbageTruck._section_name_for(name)
         self._logger.debug('Setting job: %s (%s)', name, section_name)
+        # validate that files_older_than syntax is ok now before we schedule things...
+        GarbageTruck._period_from(files_older_than)
         self.remove_job(name)
         job = self._cron.new(command=run_command_format % section_name,
                              comment=GarbageTruck._comment_for(name))
         job_period = GarbageTruck._cron_safe_period_from(check_every)
-        period_method = getattr(job, job_period[1])
-        period_method.every(job_period[0])
+        smaller_period = GarbageTruck._smaller_period_for(job_period[1])
+        if job_period[0] == 1 and smaller_period:
+            # e.g. if "1 month", set to run on first of every month (or, hour, or minute)
+            period_method = getattr(job, smaller_period)
+            period_method.on(1)
+        else:
+            period_method = getattr(job, job_period[1])
+            period_method.every(job_period[0])
         # replace any pre-existing session
         self._config.remove_section(section_name)
         self._config.add_section(section_name)
@@ -58,6 +66,11 @@ class GarbageTruck:
             self._config.set(section_name, optname, dirname)
 
     def list_jobs(self):
+        '''List all jobs.
+
+        All job details will be logged at INFO level. If DEBUG is enabled, each job's check schedule
+        will be shown (i.e. the associated crontab entry).
+        '''
         for section_name in self._config.sections():
             name = self._config.get(section_name, 'name')
             items = {'dirs': []}
@@ -113,9 +126,8 @@ class GarbageTruck:
         name = self._config.get(section_name, 'name')
         self._logger.debug('Running: %s (%s)', name, section_name)
         files_older_than = self._config.get(section_name, 'files_older_than')
-        period = GarbageTruck._period_from(files_older_than)
-        lab = period[1] + 's'
-        kwargs = {lab: period[0]}
+        period = GarbageTruck._delta_safe_period_from(files_older_than)
+        kwargs = {period[1]: period[0]}
         delta = timedelta(**kwargs)
         for dirname in self._get_dirs(section_name):
             self._run_job(delta, dirname)
@@ -150,6 +162,23 @@ class GarbageTruck:
         elif period[1] == 'year':
             raise GarbageTruck.InvalidPeriod('Check schedule must be less than a year')
         return period
+
+    @staticmethod
+    def _delta_safe_period_from(str):
+        period = GarbageTruck._period_from(str)
+        if period[1] == 'month':
+            period[0] *= 30 # TODO: month-ish?
+            period[1] = 'days'
+        elif period[1] == 'year':
+            period[0] *= 365 # TODO: year-ish?
+            period[1] = 'days'
+        else:
+            period[1] += 's'
+        return period
+
+    @staticmethod
+    def _smaller_period_for(period):
+        return {'hour': 'minute', 'day': 'hour', 'month': 'day'}.get(period)
 
     def _get_dirs(self, section_name):
         dirs = []

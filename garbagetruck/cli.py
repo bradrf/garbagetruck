@@ -23,10 +23,10 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 def main(log_level, log_file):
     '''A small tool to periodically move old files into the local file system trash.
 
-    Use garbagetruck to build and maintain automatic and scheduled cleanup of files in various
-    directories like "Downloads". Garbagetruck will send any files older than a relative period to
-    the local file system trash using the current user's crontab to schedule checks for old files
-    from cron.
+    Use garbagetruck to build and maintain scheduled cleanup of files in various directories like
+    "Downloads". Garbagetruck will send any files older than a relative period to the local file
+    system trash using the current user's crontab to schedule checks for old files from cron.
+
     '''
     log_kwargs = {
         'level': getattr(logging, log_level.upper()),
