@@ -18,13 +18,20 @@ class GarbageTruck:
         if os.path.exists(self._config_fn):
             self._config.read(self._config_fn)
 
-    def set_job(self, run_command_format, name, dirs, files_older_than='90 days', check_every='week'):
+    def set_job(self, run_command_format, name, dirs,
+                files_older_than='90 days', check_every='week'):
         '''Set a job by adding or replacing based on the name.
-        :param run_command_format: Command called for running job (will interpolate %s with a job ID).
-        :param name: Unique (to calling user) name for this job.
-        :param dirs: List of directories to iterate looking for old files.
-        :param files_older_than: Period to use to determine what "old" is for each file.
-        :param check_every: Period to use for when to trigger looking for old files.
+
+        A call to `set_job` will either add a new job or replace a previously set job with the new
+        parameters. The `name` is the identifier for a job and must be **unique** accross all jobs
+        for the same user.
+
+        :param run_command_format: the command called for running job (will interpolate `%s` with a
+                                   job ID)
+        :param name: a unique name for this job
+        :param dirs: a list of directories to iterate looking for old files
+        :param files_older_than: the period to use to determine what "old" is for each file
+        :param check_every: the period to use for when to trigger looking for old files
         '''
         section_name = GarbageTruck._section_name_for(name)
         self._logger.debug('Setting job: %s (%s)', name, section_name)
@@ -46,18 +53,36 @@ class GarbageTruck:
             self._config.set(section_name, optname, dirname)
 
     def remove_job(self, name):
+        '''Remove a job.
+
+        Removes a job previously added by `set_job`.
+
+        :param name: the unique name used when the job was created
+        '''
         section_name = GarbageTruck._section_name_for(name)
         self._logger.debug('Removing job: %s (%s)', name, section_name)
         self._cron.remove_all(comment=GarbageTruck._comment_for(name))
         self._config.remove_section(section_name)
 
     def save_changes(self):
+        '''Save all changes made to the GarbageTruck.
+
+        Writes out all the configuration and sets up the new schedule for the jobs changed before
+        calling `save_changes`.
+        '''
         self._logger.debug('Saving: %s', self._config_fn)
         self._cron.write()
         with open(self._config_fn, 'wb') as configfile:
             self._config.write(configfile)
 
     def run_job(self, id):
+        '''Run a job.
+
+        Runs a job added by `set_job`. Not normally called directly, this is what is used when run
+        from the job scheduler on the configured interval.
+
+        :param id: the unique identifier assigned to a job (this is **not** the name of the job).
+        '''
         section_name = id
         if not self._config.has_section(section_name):
             self._logger.warn('Unable to run job %s: Does not exist', section_name)
@@ -88,10 +113,10 @@ class GarbageTruck:
     def _comment_for(name):
         return 'GarbageTruck: ' + name
 
-    PERIOD_RE = re.compile('^\s*(\d*)\s*(.+?)s?\s*$')
+    _PERIOD_RE = re.compile('^\s*(\d*)\s*(.+?)s?\s*$')
     @staticmethod
     def _period_from(str):
-        match = GarbageTruck.PERIOD_RE.match(str)
+        match = GarbageTruck._PERIOD_RE.match(str)
         if not match:
             raise "Unable to parse period from " + str
         period = list(match.groups())

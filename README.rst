@@ -2,7 +2,6 @@
 GarbageTruck
 ===============================
 
-
 .. image:: https://img.shields.io/pypi/v/garbagetruck.svg
         :target: https://pypi.python.org/pypi/garbagetruck
 
@@ -17,13 +16,10 @@ GarbageTruck
      :target: https://pyup.io/repos/github/bradrf/garbagetruck/
      :alt: Updates
 
-
-A small tool to periodically run old files into the local file system trash.
-
+A small tool to periodically move old files into the local file system trash.
 
 * Free software: MIT license
 * Documentation: https://garbagetruck.readthedocs.io.
-
 
 Features
 --------
@@ -37,4 +33,3 @@ This package was created with Cookiecutter_ and the `audreyr/cookiecutter-pypack
 
 .. _Cookiecutter: https://github.com/audreyr/cookiecutter
 .. _`audreyr/cookiecutter-pypackage`: https://github.com/audreyr/cookiecutter-pypackage
-
