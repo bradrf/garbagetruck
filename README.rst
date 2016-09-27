@@ -40,7 +40,7 @@ This will set up a schedule (using cron_) to look for files each day that are ol
 montsh and have them moved into the correct trash (courtesy of send2trash_). The details can be
 shown like this::
 
-   $ garbagetruck list
+   $ garbagetruck -l debug list
    [2016-09-03T15:55:32-0700 #31693] INFO     garbagetruck Job 57d1db0a8b8427c3041ac1af89b0a348: name="Clean out old downloads" dirs=["/Users/brad/Downloads"] files_older_than="3 months" check_every="day"
    [2016-09-03T15:55:32-0700 #31693] DEBUG    garbagetruck * 1 * * * /Users/brad/.virtualenvs/garbage_truck/bin/garbagetruck run 57d1db0a8b8427c3041ac1af89b0a348 # GarbageTruck: Clean out old downloads
 

@@ -9,6 +9,8 @@ from datetime import timedelta, datetime
 from crontab import CronTab
 from send2trash import send2trash
 
+# TODO: delete empty directories if moved the last file (do not blindly delete them...)
+
 class GarbageTruck:
     class InvalidPeriod(Exception):
         '''Indicates when an invalid period is provided'''
@@ -23,7 +25,7 @@ class GarbageTruck:
             self._config.read(self._config_fn)
 
     def set_job(self, run_command_format, name, dirs,
-                files_older_than='90 days', check_every='week'):
+                compare_with='atime', files_older_than='90 days', check_every='week'):
         '''Set a job by adding or replacing based on the name.
 
         A call to `set_job` will either add a new job or replace a previously set job with the new
@@ -34,6 +36,7 @@ class GarbageTruck:
                                    job ID)
         :param name: a unique name for this job
         :param dirs: a list of directories to iterate looking for old files
+        :param compare_with: the os.path time function to use when considering old files
         :param files_older_than: the period to use to determine what "old" is for each file
         :param check_every: the period to use for when to trigger looking for old files
         '''
@@ -57,6 +60,7 @@ class GarbageTruck:
         self._config.remove_section(section_name)
         self._config.add_section(section_name)
         self._config.set(section_name, 'name', name)
+        self._config.set(section_name, 'compare_with', compare_with)
         self._config.set(section_name, 'files_older_than', files_older_than)
         self._config.set(section_name, 'check_every', check_every)
         count = 0
@@ -125,12 +129,14 @@ class GarbageTruck:
             return
         name = self._config.get(section_name, 'name')
         self._logger.debug('Running: %s (%s)', name, section_name)
+        compare_with = self._config.get(section_name, 'compare_with')
+        compare_with_func = getattr(os.path, 'get' + compare_with)
         files_older_than = self._config.get(section_name, 'files_older_than')
         period = GarbageTruck._delta_safe_period_from(files_older_than)
         kwargs = {period[1]: period[0]}
         delta = timedelta(**kwargs)
         for dirname in self._get_dirs(section_name):
-            self._run_job(delta, dirname)
+            self._run_job(compare_with_func, delta, dirname)
 
     ######################################################################
     # private
@@ -190,18 +196,18 @@ class GarbageTruck:
                 return dirs
             dirs.append(self._config.get(section_name, optname))
 
-    def _run_job(self, delta, dirname):
+    def _run_job(self, compare_with_func, delta, dirname):
         if not os.path.exists(dirname):
             self._logger.warn('Ignoring %s: Does not exist', dirname)
             return
-        oldest_mtime = datetime.now() - delta
-        self._logger.debug('Checking %s for files older than %s', dirname, oldest_mtime)
+        oldest_time = datetime.now() - delta
+        self._logger.debug('Checking %s for files older than %s', dirname, oldest_time)
         count = 0
         for dirpath, _, filenames in os.walk(dirname):
             for ent in filenames:
                 curpath = os.path.join(dirpath, ent)
-                file_modified = datetime.fromtimestamp(os.path.getmtime(curpath))
-                if file_modified < oldest_mtime:
+                file_modified = datetime.fromtimestamp(compare_with_func(curpath))
+                if file_modified < oldest_time:
                     self._logger.debug('Trashing: %s', curpath)
                     send2trash(curpath)
                     count += 1

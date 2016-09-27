@@ -17,9 +17,9 @@ CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 @click.group(context_settings=CONTEXT_SETTINGS)
 @click.version_option()
 @click.option('-l', '--log-level', type=click.Choice(['debug','info','warning','error','critical']),
-              help='set logging level', default='info')
+              help='set logging level', default='info', show_default=True)
 @click.option('--log-file', metavar='FILENAME',
-              help='write logs to FILENAME', default='STDERR')
+              help='write logs to FILENAME', default='STDERR', show_default=True)
 def main(log_level, log_file):
     '''A small tool to periodically move old files into the local file system trash.
 
@@ -41,19 +41,22 @@ def main(log_level, log_file):
     logger = logging.getLogger('garbagetruck')
 
 @main.command()
-@click.option('--older-than', metavar='AGE_COUNT_PERIOD', default='90 days',
+@click.option('--compare-with', type=click.Choice(['ctime', 'mtime', 'atime']),
+              default='atime', show_default=True,
+              help='indicate what file timestamp should be used when considering old files')
+@click.option('--older-than', metavar='AGE_COUNT_PERIOD', default='90 days', show_default=True,
               help='indicate what files should be trashed using relative age like '\
                    '"14 days", "2 weeks", or "6 months"')
-@click.option('--check-every', metavar='CHECK_COUNT_PERIOD', default='week',
+@click.option('--check-every', metavar='CHECK_COUNT_PERIOD', default='week', show_default=True,
               help='indicate how often a check should be made to find old files using relative '\
                    'age like "14 days", "2 weeks", or "6 months"')
 @click.argument('job_name')
 @click.argument('dirs', type=click.Path(file_okay=False, resolve_path=True), nargs=-1)
-def set(older_than, check_every, job_name, dirs):
+def set(compare_with, older_than, check_every, job_name, dirs):
     '''Add or update a scheduled trash job.'''
     run_command_format = sys.argv[0] + ' run %s'
     truck = GarbageTruck()
-    truck.set_job(run_command_format, job_name, dirs,
+    truck.set_job(run_command_format, job_name, dirs, compare_with,
                   files_older_than=older_than, check_every=check_every)
     truck.save_changes()
 
